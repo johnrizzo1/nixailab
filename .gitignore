@@ -1,3 +1,6 @@
+# Don't commit this to git.
+.env
+
 # Devenv
 .devenv*
 devenv.local.nix
@@ -5,6 +8,11 @@ devenv.local.nix
 # direnv
 .direnv
 
+# No need to commit the python virtual environment
+.venv
+
 # pre-commit
 .pre-commit-config.yaml
+
+# The services use this directory to store any generated data
 data

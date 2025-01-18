@@ -1,5 +1,5 @@
 {
-  description = "Description for the project";
+  description = "A Nix based AI/ML/DS Lab";
 
   inputs = {
     devenv-root = {
@@ -32,6 +32,14 @@
       systems = [ "x86_64-linux" "i686-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
 
       perSystem = { config, self', inputs', pkgs, system, lib, ... }: {
+        _module.args.pkgs = import inputs.nixpkgs {
+          inherit system;
+          # overlays = lib.attrValues self.overlays;
+          config.allowUnfree = true;
+          config.cudaSupport = true;
+        };
+
+
         packages.default = self'.packages.nixailab;
         process-compose."nixailab" = pc:
           let
@@ -112,14 +120,26 @@
                 # initialScript = "CREATE EXTENSION IF NOT EXISTS timescaledb; CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS pgvector;";
               };
 
-              mongodb."mongodb1".enable = true;
-              # services.kafka.enable = true;
+              # mongodb."mongodb1".enable = true;
+
+              zookeeper."zookeeper1" = {
+                enable = true;
+                port = 2181;
+              };
+
+              apache-kafka."kafka1" = {
+                enable = true;
+                port = 9092;
+                settings = {
+                  "offsets.topic.replication.factor" = 1;
+                  "zookeeper.connect" = [ "localhost:2181" ];
+                };
+              };
             };
 
             settings.processes = {
               # Start the Open WebUI service after the Ollama service has finished initializing and loading the models
-              open-webui1.depends_on.ollama1-models.condition = "process_completed_successfully";
-
+              # open-webui1.depends_on.ollama1-models.condition = "process_completed_successfully";
               # Open the browser after the Open WebUI service has started
               open-browser = {
                 command =
@@ -131,6 +151,7 @@
                   "${opener} ${url}";
                 depends_on.open-webui1.condition = "process_healthy";
               };
+
               pgweb =
                 let
                   pgcfg = pc.config.services.postgres.pg1;
@@ -141,7 +162,7 @@
                   depends_on."pg1".condition = "process_healthy";
                 };
 
-              test = {
+              test_postgres = {
                 command = pkgs.writeShellApplication {
                   name = "pg1-test";
                   runtimeInputs = [ pc.config.services.postgres.pg1.package ];
@@ -151,6 +172,8 @@
                 };
                 depends_on."pg1".condition = "process_healthy";
               };
+
+              kafka1.depends_on."zookeeper1".condition = "process_healthy";
             };
           };
 
@@ -162,6 +185,7 @@
             lib.mkIf (devenvRootFileContent != "") devenvRootFileContent;
 
           name = "nixailab";
+
           imports = [
             # This is just like the imports in devenv.nix.
             # See https://devenv.sh/guides/using-with-flake-parts/#import-a-devenv-module
@@ -172,10 +196,17 @@
           packages = with pkgs; [ 
             config.packages.default 
             git # Code management
-            jq # Query JSON
-            yq # Query YAML
+            jq  # Query JSON
+            yq  # Query YAML
             wget
             curl
+            apacheKafka
+            postgresql
+            (python3.withPackages (pkgs-python: with pkgs-python; [
+              python-dotenv
+              numpy
+              torch
+            ]))
           ] ++ lib.optionals pkgs.stdenv.isDarwin [
             darwin.apple_sdk.frameworks.CoreFoundation
             darwin.apple_sdk.frameworks.Security
@@ -190,11 +221,6 @@
           # Python setup
           languages.python.enable = true;
           languages.python.venv.enable = true;
-          languages.python.venv.requirements = ''
-            python-dotenv
-            numpy
-            torch
-          '';
           languages.python.uv.enable = true;
           languages.python.poetry.enable = true;
 
