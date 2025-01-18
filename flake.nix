@@ -32,14 +32,7 @@
       systems = [ "x86_64-linux" "i686-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
 
       perSystem = { config, self', inputs', pkgs, system, lib, ... }: {
-        # Per-system attributes can be defined here. The self' and inputs'
-        # module parameters provide easy access to attributes of the same
-        # system.
-
         packages.default = self'.packages.nixailab;
-        # config.allowUnfree = true;
-        # config.cudaSupport = true;
-
         process-compose."nixailab" = pc:
           let
             rosettaPkgs =
@@ -119,7 +112,7 @@
                 # initialScript = "CREATE EXTENSION IF NOT EXISTS timescaledb; CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS pgvector;";
               };
 
-              # mongodb."mongodb1".enable = true;
+              mongodb."mongodb1".enable = true;
               # services.kafka.enable = true;
             };
 
@@ -138,7 +131,6 @@
                   "${opener} ${url}";
                 depends_on.open-webui1.condition = "process_healthy";
               };
-
               pgweb =
                 let
                   pgcfg = pc.config.services.postgres.pg1;
@@ -161,7 +153,6 @@
               };
             };
           };
-        # };
 
         devenv.shells.default = {
           devenv.root =
