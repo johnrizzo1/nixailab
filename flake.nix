@@ -36,9 +36,8 @@
           inherit system;
           # overlays = lib.attrValues self.overlays;
           config.allowUnfree = true;
-          config.cudaSupport = true;
+          config.cudaSupport = pkgs.stdenv.isLinux;
         };
-
 
         packages.default = self'.packages.nixailab;
         process-compose."nixailab" = pc:
@@ -49,7 +48,7 @@
               else pkgs;
             
             dbName = "sample";
-            dataDirBase = "$HOME/.cache/.nixailab/llm";
+            dataDirBase = "$HOME/.cache/.nixailab/";
           in
           {
             imports = [
@@ -59,7 +58,7 @@
             services = {
               # Backend service to perform inference on LLM models
               ollama."ollama1" = {
-                enable = true;
+                enable = false;
 
                 # The models are usually huge, downloading them in every project
                 # directory can lead to a lot of duplication. Change here to a
@@ -79,7 +78,7 @@
               # Get ChatGPT like UI, but open-source, with Open WebUI
               open-webui."open-webui1" = {
                 enable = true;
-                dataDir = "${dataDirBase}/open-webui";
+                dataDir = "${dataDirBase}/open-webui1";
                 environment =
                   let
                     inherit (pc.config.services.ollama.ollama1) host port;
@@ -113,11 +112,16 @@
                 port = 5432;
                 extensions = extensions: [
                   extensions.postgis
-                  # extensions.timescaledb
+                  extensions.timescaledb
                   extensions.pgvector
                 ];
-                # settings.shared_preload_libraries = "timescaledb";
-                # initialScript = "CREATE EXTENSION IF NOT EXISTS timescaledb; CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS pgvector;";
+                initialScript.before = ''
+                  CREATE USER jrizzo WITH PASSWORD 'wh4t3fr!';
+                  CREATE EXTENSION IF NOT EXISTS timescaledb;
+                  CREATE EXTENSION IF NOT EXISTS postgis;
+                  CREATE EXTENSION IF NOT EXISTS pgvector;
+                '';
+                settings.shared_preload_libraries = "timescaledb";
               };
 
               # mongodb."mongodb1".enable = true;
@@ -202,11 +206,6 @@
             curl
             apacheKafka
             postgresql
-            (python3.withPackages (pkgs-python: with pkgs-python; [
-              python-dotenv
-              numpy
-              torch
-            ]))
           ] ++ lib.optionals pkgs.stdenv.isDarwin [
             darwin.apple_sdk.frameworks.CoreFoundation
             darwin.apple_sdk.frameworks.Security

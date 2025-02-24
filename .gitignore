@@ -16,3 +16,5 @@ devenv.local.nix
 
 # The services use this directory to store any generated data
 data
+
+.env
